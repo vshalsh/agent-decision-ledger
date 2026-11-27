@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-decision-ledger"
+version = "0.1.0"
+description = "A tamper-evident, hash-chained JSONL audit trail for AI agents, with an offline verifier and HTML audit report."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Vishal Sharma" }]
+keywords = ["ai-agents", "audit", "governance", "hash-chain", "tamper-evident", "ledger"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Security",
+    "Topic :: System :: Logging",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+adl = "decision_ledger.cli:main"
+
+[tool.setuptools]
+packages = ["decision_ledger"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
