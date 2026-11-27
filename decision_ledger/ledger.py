@@ -11,7 +11,7 @@ from typing import Any, Callable, Iterable, Optional, Union
 
 from .chain import GENESIS_HASH, KINDS, canonical_json, compute_hash, encode_line
 from .errors import InvalidEntryError, LedgerCorruptError, LedgerError, LedgerLockedError
-from .verify import check_shape
+from .verify import check_shape, verify_file
 
 try:  # POSIX advisory locking; the only platform-specific dependency.
     import fcntl
@@ -73,16 +73,24 @@ class Ledger:
         lock_timeout: Optional[float] = 10.0,
         clock: Optional[Clock] = None,
         fsync: bool = True,
+        verify: bool = True,
     ) -> "Ledger":
         """Open (creating if needed) the ledger at ``path`` and resume its chain.
+
+        ``verify`` (default ``True``): recompute the *whole* chain before resuming, while
+        holding the append lock. Any break anywhere in the file raises
+        :class:`LedgerCorruptError` naming the first broken seq. ``verify=False`` skips
+        the full recompute and checks only the last line - an **unsafe resume** for very
+        large ledgers: a break earlier in the file is NOT detected and new entries would
+        extend a broken chain. Run ``adl verify`` out of band if you use it.
 
         ``lock_timeout``: seconds to wait for the exclusive append lock (``0`` = fail
         immediately, ``None`` = wait forever). ``clock``: zero-argument callable returning
         an aware ``datetime`` (or pre-formatted string), used for ``ts``; defaults to
         the current UTC time. ``fsync``: flush every append to stable storage.
 
-        Raises :class:`LedgerCorruptError` if the existing tail is partial or does not
-        hash correctly - appending onto it would extend a broken chain.
+        Always raises :class:`LedgerCorruptError` if the existing tail is partial or does
+        not hash correctly - appending onto it would extend a broken chain.
         """
         if fcntl is None:  # pragma: no cover
             raise LedgerError("decision_ledger requires POSIX fcntl file locking (Linux/macOS)")
@@ -92,6 +100,8 @@ class Ledger:
         try:
             with ledger._locked():
                 ledger.seq, ledger.head = ledger._read_tail()
+                if verify:
+                    ledger._verify_full()
         except BaseException:
             ledger.close()
             raise
@@ -176,6 +186,17 @@ class Ledger:
 
     def _locked(self) -> "_FileLock":
         return _FileLock(self._fd, self.path, self._lock_timeout)
+
+    def _verify_full(self) -> None:
+        """Recompute the whole chain; raise if broken or not ending at the tail. Caller holds the lock."""
+        result = verify_file(self.path)
+        if not result.ok:
+            raise LedgerCorruptError(
+                f"{self.path}: {result.first_break.message()}; refusing to append to a broken chain. "
+                f"Run 'adl verify {self.path}'."
+            )
+        if (result.entries, result.head) != (self.seq, self.head):  # pragma: no cover - defensive
+            raise LedgerCorruptError(f"{self.path}: full verification disagrees with the tail entry")
 
     def _read_tail(self) -> tuple[int, str]:
         """Return (seq, hash) of the last entry on disk, validating it. Caller holds the lock."""

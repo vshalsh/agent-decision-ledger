@@ -211,7 +211,7 @@ def test_only_malformed_first_line(tmp_path):
     assert adl("stats", p, "--format", "json")[0] in (0, 1)
     o = tmp_path / "r.html"
     code, _, err = adl("report", p, "-o", o)
-    assert code == 0 and "Traceback" not in err and "CHAIN TAMPERED" in o.read_text()
+    assert code == 1 and "Traceback" not in err and "CHAIN TAMPERED" in o.read_text()  # L-004: exit 1 on broken chain
     with pytest.raises(LedgerCorruptError):
         Ledger.open(p)
 
