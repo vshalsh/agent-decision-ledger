@@ -196,7 +196,14 @@ def render_report(
     generated = (generated_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
 
     # --- banner
-    if result.ok:
+    if result.ok and result.entries == 0:
+        banner = (
+            "<div class=\"banner ok\" role=\"status\" data-chain=\"verified\">"
+            "CHAIN VERIFIED: empty ledger, 0 entries, head (empty)"
+            "<p>The file contains no entries. An empty file cannot show whether it was wiped: "
+            "compare against an externally recorded head hash (adl verify --expect-head).</p></div>"
+        )
+    elif result.ok:
         banner = (
             "<div class=\"banner ok\" role=\"status\" data-chain=\"verified\">"
             f"CHAIN VERIFIED: all {result.entries} entries recompute to head "
