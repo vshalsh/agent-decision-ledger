@@ -295,7 +295,10 @@ def render_report(
             "chain": result.to_dict(),
         },
         sort_keys=True,
-    ).replace("</", "<\\/")
+    )
+    # JSON-in-script hardening: no '<', '>' or '&' may appear literally inside the block,
+    # so neither '</script' nor '<!--' + '<script' can change the HTML parser's state.
+    summary_json = summary_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
     css_vars = ";".join(f"--{k}:{v}" for k, v in TOKENS.items())
     doc = [
@@ -320,7 +323,9 @@ def render_report(
         f"<script>{_JS}</script>",
         "</main></body></html>",
     ]
-    return "\n".join(doc) + "\n"
+    # Lone UTF-16 surrogates are valid in the ledger (stored as \\udXXX escapes) but cannot be
+    # encoded as UTF-8; render them as the same visible \\uXXXX escape instead of crashing.
+    return ("\n".join(doc) + "\n").encode("utf-8", "backslashreplace").decode("utf-8")
 
 
 def _raw_lines(path: str, wanted: set) -> dict:

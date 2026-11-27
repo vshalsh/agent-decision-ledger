@@ -164,7 +164,7 @@ def test_report_escapes_hostile_content(tmp_path):
         led.record("decision", evil, {evil: evil, "n": [evil]}, grounding=[{"source": evil, "quote": evil}])
     html = render_report(p)
     assert evil not in html
-    assert html.count("<script") == 3  # summary json + filter js (+ escaped, inert text inside the json block)
+    assert html.count("<script") == 2  # summary json + filter js; '<' is <-escaped inside the json block (D2)
     assert html.count("</script>") == 2
     class P(HTMLParser):
         def __init__(s):
@@ -266,7 +266,6 @@ def test_unicode_control_chars_round_trip(tmp_path):
     assert adl("stats", p, "--format", "json")[0] == 0
 
 
-@pytest.mark.xfail(reason="DEFECT D1: lone surrogate in payload verifies but `adl report` dies with UnicodeEncodeError traceback", strict=True)
 def test_lone_surrogate_report(tmp_path):
     p = tmp_path / "s.jsonl"
     with Ledger.open(p, fsync=False) as led:
@@ -276,7 +275,6 @@ def test_lone_surrogate_report(tmp_path):
     assert code == 0 and "Traceback" not in err
 
 
-@pytest.mark.xfail(reason="DEFECT D2: '<!--<script>' in actor/payload survives unescaped inside the adl-summary JSON block (HTML script double-escape state)", strict=True)
 def test_summary_json_block_has_no_html_comment_open(tmp_path):
     p = tmp_path / "c.jsonl"
     with Ledger.open(p, fsync=False) as led:
